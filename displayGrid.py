@@ -6,6 +6,11 @@ import random
 # initialize pygame
 pygame.init()
 
+# window dimensions
+screen_width = 900
+screen_height = 700
+tile_path = 'Assets//Number_Blocks_01//'
+
 
 class LoadAssets:
     """ This class will load in all the assets needed for the game """
@@ -14,13 +19,32 @@ class LoadAssets:
         raise NotImplementedError
 
 
+class Tile(pygame.sprite.Sprite):
+    """ Container used to hold individual tiles """
+
+    def __init__(self, tile_sprite):
+        # initialize parent Sprite constructor
+        pygame.sprite.Sprite.__init__(self)
+
+        # create surface for tile
+        # background color set to white
+        self.image = pygame.Surface([32, 32])
+
+        # load in tile image
+        self.image = tile_sprite.convert_alpha()
+
+        # grab rectangle object that holds tile sprite
+        self.rect = self.image.get_rect()
+
+
 class DrawGrid:
     """ This class will create the playable grid, and update the squares when the player
         makes a move, or the AI
     """
 
     def __init__(self):
-        raise NotImplementedError
+        # create screen
+        self.screen = pygame.display.set_mode([screen_width, screen_height])
 
     def move_square(self):
         raise NotImplementedError
@@ -62,6 +86,11 @@ class Grid:
     def search_empty_square(self):
         raise NotImplementedError
 
+    def get_tile(self, tile_index):
+        # return tile value located in tile_index tuple
+        (x, y) = tile_index
+        return self.grid[x][y]
+
     def shuffle(self, size):
         # randomly shuffle tiles and ensure that goal state is not reached accidentally
         tile_list = self.tiles.copy()
@@ -81,4 +110,5 @@ class Grid:
         return self.grid == self.goal_grid
 
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
+    DrawGrid()
