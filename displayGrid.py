@@ -2,6 +2,7 @@
 
 import pygame
 import random
+import util
 
 # initialize pygame
 pygame.init()
@@ -16,11 +17,11 @@ class LoadAssets:
 
     def __init__(self):
         self.tiles = []
+        self.tiles.append(pygame.image.load(tile_path + 'Empty_Block_128x128.png'))
 
         for i in range(1, 9):
             tile_sprite = pygame.image.load(tile_path + tile_name + str(i) + '.png')
             self.tiles.append(tile_sprite)
-        print(self.tiles)
 
     def load_images(self, index):
         return self.tiles[index]
@@ -29,12 +30,14 @@ class LoadAssets:
 class Tile(pygame.sprite.Sprite):
     """ Container used to hold individual tiles """
 
-    def __init__(self, tile_sprite, x, y):
+    def __init__(self, tile_sprite, x, y, num):
         # initialize parent Sprite constructor
         pygame.sprite.Sprite.__init__(self)
 
+        # keep track of number assigned to this tile
+        self.number = num
+
         # create surface for tile
-        # background color set to white
         self.image = pygame.Surface([64, 64])
 
         # load in tile image
@@ -47,10 +50,32 @@ class Tile(pygame.sprite.Sprite):
 
     def move(self, x, y):
         # update x and y coordinate when a tile moves
-        self.rect.x = x
-        self.rect.y = y
+
+        diff_x = self.rect.x - x
+        diff_y = self.rect.y - y
+
+        if diff_x < 0 or diff_x > 0 or diff_y < 0 or diff_y > 0:
+            if diff_x < 0:
+                self.rect = self.rect.move(1, 0)
+                diff_x += 1
+            elif diff_x > 0:
+                self.rect = self.rect.move(-1, 0)
+                diff_x += -1
+            elif diff_y < 0:
+                self.rect = self.rect.move(0, 1)
+                diff_y += 1
+            elif diff_y > 0:
+                self.rect = self.rect.move(0, -1)
+                diff_y += -1
+
+    def get_number(self):
+        return self.number
+
+    def get_coord(self):
+        return self.rect.x, self.rect.y
 
 
+# function used to create window to show grid
 def window(width, height):
     # create a window based on the number of tiles that will be used
     screen = pygame.display.set_mode([width, height])
@@ -69,27 +94,57 @@ class DrawGrid:
         self.screen_width = size * 128 + self.border_width * 4
         self.screen_height = self.screen_width + (self.screen_width // self.border_width)
         self.screen = window(self.screen_width, self.screen_height)
-
+        self.screen.fill((255, 255, 255))
+        
         # create list to hold all tiles
         self.tile_list = pygame.sprite.Group()
         self.assets = LoadAssets()
+        self.grid = grid_array
 
+        # create grid along with the border and load in the tiles
         self.draw_board()
-        self.draw_tiles(size, grid_array)
-        con = True
-        clock = pygame.time.Clock()
+        self.draw_tiles(size)
+        self.tile_list.draw(self.screen)
 
-        while con:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    con = False
+    def move_square(self, tile_number, grid):
 
-            pygame.display.flip()
-            self.tile_list.draw(self.screen)
-            clock.tick(60)
+        # tile and empty and used to represent
+        # the tile that is about to be moved and the empty space
+        tile = self.find_tile(tile_number)
+        empty = self.find_tile(0)
 
-    def move_square(self):
-        raise NotImplementedError
+        # get the coordinates of the tile that was clicked on along with the empty space
+        empty_x, empty_y = empty.get_coord()
+        tx, ty = tile.get_coord()
+
+        # continue to move the tile until it is now where the empty space was located
+        # empty tile will move in the opposite direction to fill in space of the tile that was moved
+        while tile.get_coord() != (empty_x, empty_y):
+            delay = pygame.time.get_ticks() / 1000
+            while delay > 0:
+                delay -= 1
+                tile.move(empty_x, empty_y)
+                empty.move(tx, ty)
+                self.update_grid(grid)
+
+    def find_tile(self, tile_number):
+        # return reference to tile you are searching for
+        for tile in self.tile_list:
+            if tile.get_number() == tile_number:
+                return tile
+
+    def update_grid(self, grid):
+        # this will be called when a tile is moved successfully
+        # when a tile is moved, refresh the screen and load all assets again
+        self.screen.fill((255, 255, 255))
+        self.draw_board()
+        self.tile_list.draw(self.screen)
+
+    def check_collision(self, mouse_x, mouse_y):
+        # determine which tile was clicked on
+        for tile in self.tile_list:
+            if tile.rect.collidepoint((mouse_x, mouse_y)):
+                return tile.get_number()
 
     def draw_board(self):
         # create the borders of the grid
@@ -103,23 +158,20 @@ class DrawGrid:
         pygame.draw.rect(self.screen, (150, 150, 150), bottom_border)
         pygame.draw.rect(self.screen, (150, 150, 150), left_border)
 
-    def draw_tiles(self, size, grid_array):
+    def draw_tiles(self, size):
         # draw tiles in correct location
         x = self.border_width
         y = self.border_width
 
         # go through 2-D array and draw tile based on arrangement
+        # each tile is of size 128, so that is added to the x-coordinate of each tile
         for i in range(size):
             for j in range(size):
-                tile_number = grid_array[i][j]
-                if tile_number != 0:
-                    self.tile_list.add(Tile(self.assets.load_images(tile_number - 1), x, y))
+                tile_number = self.grid[i][j]
+                self.tile_list.add(Tile(self.assets.load_images(tile_number), x, y, tile_number))
                 x += 128 + self.border_width
             y += 128 + self.border_width
             x = self.border_width
-
-    def reset(self):
-        raise NotImplementedError
 
 
 class Grid:
@@ -130,6 +182,9 @@ class Grid:
         self.grid_size = size * size
         self.grid = [[0]*size for _ in range(size)]
         self.goal_grid = [[0]*size for _ in range(size)]
+
+        # variable to keep track of number of moves made
+        self.moves_count = 0
 
         # create list of tiles based on size of grid
         self.tiles = [i for i in range(1, self.grid_size)]
@@ -147,10 +202,31 @@ class Grid:
         self.shuffle(size)
 
     def move_square(self, tile_number):
-        raise NotImplementedError
+        tile_moved = False
 
-    def search_empty_square(self):
-        raise NotImplementedError
+        # used to find possible moves
+        tile_actions = util.Actions()
+
+        # check if the tile can be moved
+        possible_action = tile_actions.get_actions(self.grid, tile_number)
+
+        action, (x, y) = possible_action[0]
+
+        if action != 'Nothing':
+            i, j = self.get_index(tile_number)
+            self.grid[i][j] = 0
+            self.grid[i + x][j + y] = tile_number
+            self.moves_count += 1
+            tile_moved = True
+
+        return tile_moved
+
+    def get_index(self, tile_number):
+        # return current index of tile
+        for i in range(len(self.grid[0])):
+            for j in range(len(self.grid[0])):
+                if tile_number == self.grid[i][j]:
+                    return i, j
 
     def get_tile(self, tile_index):
         # return tile value located in tile_index tuple
@@ -178,7 +254,5 @@ class Grid:
     def get_copy(self):
         return self.grid.copy()
 
-
-if __name__ == '__main__':
-    g = Grid(3)
-    DrawGrid(3, g.get_copy())
+    def get_num_moves(self):
+        return self.moves_count
