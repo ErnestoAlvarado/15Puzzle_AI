@@ -2,6 +2,7 @@
 
 import pygame
 import displayGrid as dp
+from Environment import PuzzleEnvironment
 
 
 class Game:
@@ -10,7 +11,12 @@ class Game:
     def __init__(self, grid_size):
 
         self.grid = dp.Grid(grid_size)
-        self.display = dp.DrawGrid(grid_size, self.grid.get_copy())
+        # self.display = dp.DrawGrid(grid_size, self.grid.get_copy())
+        self.environment = PuzzleEnvironment()
+
+    def find_solution(self):
+        #self.environment.train()
+        self.environment.find_solution()
 
     def run(self):
         con = True
@@ -30,11 +36,10 @@ class Game:
                     if tile != 0 and tile is not None:
                         # if a tile was moved successfully, update move counter, and check if we won
                         if self.grid.move_square(tile):
-                            print("updated grid: ", self.grid.get_copy())
                             print("Moves: ", self.grid.get_num_moves())
                             self.display.move_square(tile, self.grid.get_copy())
                             if self.grid.check_goal_state():
-                                pygame.QUIT
+                                con = False
 
             pygame.display.flip()
             clock.tick(60)
@@ -42,4 +47,4 @@ class Game:
 
 if __name__ == '__main__':
     game = Game(3)
-    game.run()
+    game.find_solution()

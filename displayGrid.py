@@ -95,7 +95,7 @@ class DrawGrid:
         self.screen_height = self.screen_width + (self.screen_width // self.border_width)
         self.screen = window(self.screen_width, self.screen_height)
         self.screen.fill((255, 255, 255))
-        
+
         # create list to hold all tiles
         self.tile_list = pygame.sprite.Group()
         self.assets = LoadAssets()
@@ -177,7 +177,7 @@ class DrawGrid:
 class Grid:
     """ This class will create a 2-D array to handle the tiles """
 
-    def __init__(self, size):
+    def __init__(self, size, *args):
         # create a 2-D array to hold the tiles
         self.grid_size = size * size
         self.grid = [[0]*size for _ in range(size)]
@@ -199,16 +199,17 @@ class Grid:
                 num += 1
 
         # randomly shuffle tiles
-        self.shuffle(size)
+        if len(args) == 1:
+            self.grid = args[0]
+        else:
+            self.shuffle(size)
+        self.tile_actions = util.Actions()
 
     def move_square(self, tile_number):
         tile_moved = False
 
-        # used to find possible moves
-        tile_actions = util.Actions()
-
         # check if the tile can be moved
-        possible_action = tile_actions.get_actions(self.grid, tile_number)
+        possible_action = self.tile_actions.get_actions(self.grid, tile_number)
 
         action, (x, y) = possible_action[0]
 
@@ -220,6 +221,21 @@ class Grid:
             tile_moved = True
 
         return tile_moved
+
+    def try_action(self, action):
+
+        (x, y) = self.tile_actions.get_action_value(action)
+        length = 3
+
+        # attempt to move tile in the direction of the action
+        for i in range(0, 3):
+            for j in range(0, 3):
+                if (0 <= x + i <= length - 1) and (0 <= y + j <= length - 1):
+                    if self.grid[i + x][j + y] == 0:
+                        tile = self.grid[i][j]
+                        self.grid[i][j] = 0
+                        self.grid[i+x][j+y] = tile
+                        self.moves_count += 1
 
     def get_index(self, tile_number):
         # return current index of tile
@@ -242,11 +258,33 @@ class Grid:
         tile_list.append(0)
         c = 0
 
+        self.moves_count = 0
         # fill 2-D array with tiles that have been shuffled
         for i in range(size):
             for j in range(size):
                 self.grid[i][j] = tile_list[c]
                 c += 1
+
+    def is_solvable(self):
+        inversions = 0
+
+        # count the number of inversions to determine if the current
+        # puzzle configuration can be solve
+        # a puzzle can be solved if it has even number of inversions
+        flatten_grid = self.tile_actions.flatten(self.grid.copy())
+
+        index = 0
+        for i in range(0,9):
+            for j in range(index, 9):
+                if flatten_grid[index] > flatten_grid[j] and flatten_grid[j] != 0:
+                    inversions += 1
+            index += 1
+
+        return inversions % 2 == 0
+
+    def custom_gird(self, grid):
+        # manually change grid for testing purposes
+        self.grid = grid
 
     def check_goal_state(self):
         return self.grid == self.goal_grid
@@ -256,3 +294,5 @@ class Grid:
 
     def get_num_moves(self):
         return self.moves_count
+
+
